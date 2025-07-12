@@ -59,7 +59,7 @@ jobs:
               run: |
                   RELEASE_VERSION=${{ github.run_number }}
                   docker build -t cr.yandex/${{ secrets.YC_REGISTRY_ID }}/app:$RELEASE_VERSION .
-                  docker tag cr.yandex/${{ secrets.YC_REGISTRY_ID }}/app:$RELEASE_VERSION cr.yandex/${{ secrets.YC_REGISTRY_ID }}/app:$RELEASE_VERSION_latest
+                  docker tag cr.yandex/${{ secrets.YC_REGISTRY_ID }}/app:$RELEASE_VERSION cr.yandex/${{ secrets.YC_REGISTRY_ID }}/app:${RELEASE_VERSION}_latest
 
             - name: Log in to Yandex Container Registry
               run: |
@@ -72,7 +72,7 @@ jobs:
               run: |
                   RELEASE_VERSION=${{ github.run_number }}
                   docker push cr.yandex/${{ secrets.YC_REGISTRY_ID }}/app:$RELEASE_VERSION
-                  docker push cr.yandex/${{ secrets.YC_REGISTRY_ID }}/app:$RELEASE_VERSION_latest
+                  docker push cr.yandex/${{ secrets.YC_REGISTRY_ID }}/app:${RELEASE_VERSION}_latest
 
             - name: Create release tag
               run: |
