@@ -47,6 +47,8 @@ jobs:
             - name: Create release branch
               run: |
                   RELEASE_VERSION=${{ github.run_number }}
+                  git config --global user.email "you@example.com"
+                  git config --global user.name "Your Name"
                   git checkout -b releases/$RELEASE_VERSION
                   git push origin releases/$RELEASE_VERSION
 
@@ -70,11 +72,13 @@ jobs:
               run: |
                   RELEASE_VERSION=${{ github.run_number }}
                   docker push cr.yandex/${{ secrets.YC_REGISTRY_ID }}/app:$RELEASE_VERSION
-                  docker push cr.yandex/${{ secrets.YC_REGISTRY_ID }}/app:${RELEASE_VERSION}_latest
+                  docker push cr.yandex/${{ secrets.YC_REGISTRY_ID }}/app:$RELEASE_VERSION_latest
 
             - name: Create release tag
               run: |
                   RELEASE_VERSION=${{ github.run_number }}
+                  git config --global user.email "githubActions@example.com"
+                  git config --global user.name "Github Actions"
                   git tag -a $RELEASE_VERSION -m "Release $RELEASE_VERSION"
                   git push origin $RELEASE_VERSION
 
