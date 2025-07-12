@@ -3,6 +3,9 @@ name: Release
 on:
     workflow_dispatch:
 
+env:
+    REGISTRY_ID: "crp9i0p2ovnu55shvi59" # Замените на ваш идентификатор реестра в Yandex Container Registry
+
 jobs:
     lint:
         runs-on: ubuntu-latest
@@ -62,8 +65,8 @@ jobs:
             - name: Build Docker image
               run: |
                   RELEASE_VERSION=${{ github.run_number }}
-                  docker build -t cr.yandex/${{ secrets.YC_REGISTRY_ID }}/app:$RELEASE_VERSION .
-                  docker tag cr.yandex/${{ secrets.YC_REGISTRY_ID }}/app:$RELEASE_VERSION cr.yandex/${{ secrets.YC_REGISTRY_ID }}/app:${RELEASE_VERSION}_latest
+                  docker build -t cr.yandex/${{ env.REGISTRY_ID }}/app:$RELEASE_VERSION .
+                  docker tag cr.yandex/${{ env.REGISTRY_ID }}/app:$RELEASE_VERSION cr.yandex/${{ env.REGISTRY_ID }}/app:${RELEASE_VERSION}_latest
 
             - name: Log in to Yandex Container Registry
               run: |
@@ -75,8 +78,8 @@ jobs:
             - name: Push Docker image
               run: |
                   RELEASE_VERSION=${{ github.run_number }}
-                  docker push cr.yandex/${{ secrets.YC_REGISTRY_ID }}/app:$RELEASE_VERSION
-                  docker push cr.yandex/${{ secrets.YC_REGISTRY_ID }}/app:${RELEASE_VERSION}_latest
+                  docker push cr.yandex/${{ env.REGISTRY_ID }}/app:$RELEASE_VERSION
+                  docker push cr.yandex/${{ env.REGISTRY_ID }}/app:${RELEASE_VERSION}_latest
 
             - name: Create release tag
               run: |
@@ -90,8 +93,7 @@ jobs:
               run: |
                   RELEASE_VERSION=${{ github.run_number }}
                   AUTHOR=${{ github.actor }}
-                  DATE=$(date +'%Y-%m-%d')
-
+                  DATE=$(date +'%d.%m.%Y')
 
                   PREVIOUS_TAG=$(git describe --tags --abbrev=0 --match "[0-9]*" $(git rev-list --tags --max-count=1 --skip=1) 2>/dev/null || echo "")
 
@@ -109,16 +111,16 @@ jobs:
 
 
                   ISSUE_BODY=$(cat <<EOF
-                  **Release Date:** $DATE
-                  **Author:** $AUTHOR
-                  **Version:** $RELEASE_VERSION
-                  **Docker Image:** cr.yandex/${{ env.REGISTRY_ID }}/${{ env.APP_NAME }}:$RELEASE_VERSION
+                  **Дата релиза:** $DATE
+                  **Автор:** $AUTHOR
+                  **Версия:** $RELEASE_VERSION
+                  **Образ докера:** cr.yandex/${{ env.REGISTRY_ID }}/app:$RELEASE_VERSION
 
-                  **Changes:**
+                  **Изменения:**
                   $COMMITS
                   EOF
                   )
 
                   gh issue create --title "Release $RELEASE_VERSION" --body "$ISSUE_BODY"
               env:
-                GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
