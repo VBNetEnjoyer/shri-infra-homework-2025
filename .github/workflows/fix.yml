@@ -48,10 +48,7 @@ jobs:
     fix-release:
         needs: [lint, test]
         runs-on: ubuntu-latest
-        permissions:
-            contents: write
-            issues: write
-
+        permissions: write-all
         steps:
             - uses: actions/checkout@v4
               with:
@@ -95,18 +92,18 @@ jobs:
                   FIX_TAG=${{ steps.get_fix_number.outputs.FIX_NUM }}
                   DATE=$(date +'%d.%m.%Y')
                   AUTHOR=${{ github.actor }}
-                  TAG_PREFIX="v${{ inputs.release_version }}_fix"
+                  TAG_PREFIX="${{ inputs.release_version }}_fix"
                   PREV_TAG=$(git tag --list "${TAG_PREFIX}*" | sort -V | tail -n 2 | head -n 1)
 
                   if [ -z "$PREV_TAG" ]; then
-                    COMMITS=$(git log --pretty=format:"- %s (%h)" v${{ inputs.release_version }}..HEAD)
+                    COMMITS=$(git log --pretty=format:"- %s (%h)" ${{ inputs.release_version }}..HEAD)
                   else
                     COMMITS=$(git log --pretty=format:"- %s (%h)" $PREV_TAG..HEAD)
                   fi
 
                   COMMENT="**Фикс от:** $DATE  
                   **Автор:** $AUTHOR  
-                  **Версия:** v${{ inputs.release_version }}_fix$FIX_TAG  
+                  **Версия:** ${{ inputs.release_version }}_fix$FIX_TAG  
                   **Docker образ:** $IMAGE_NAME:${{ inputs.release_version }}_fix$FIX_TAG
 
                   **Изменения:**
