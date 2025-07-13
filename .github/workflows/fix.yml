@@ -52,8 +52,22 @@ jobs:
         steps:
             - uses: actions/checkout@v4
               with:
-                  ref: releases/${{ github.event.inputs.release_version }}
                   fetch-depth: 0
+
+            - name: Check if release branch exists
+              id: check_release_branch
+              run: |
+                  RELEASE_BRANCH="releases/${{ github.event.inputs.release_version }}"
+                  if ! git ls-remote --exit-code --heads origin "$RELEASE_BRANCH"; then
+                      echo "::error::Release branch $RELEASE_BRANCH not found!"
+                      exit 1
+                  fi
+                  echo "RELEASE_BRANCH=$RELEASE_BRANCH" >> $GITHUB_OUTPUT
+
+            - name: Checkout release branch
+              run: |
+                  git fetch origin ${{ steps.check_release_branch.outputs.RELEASE_BRANCH }}
+                  git checkout ${{ steps.check_release_branch.outputs.RELEASE_BRANCH }}
 
             - name: Merge main into release branch
               run: |
@@ -94,7 +108,7 @@ jobs:
                   git tag -a ${{ inputs.release_version }}_fix$FIX_TAG -m "Fix release ${{ inputs.release_version }} #$FIX_TAG"
                   git push origin ${{ inputs.release_version }}_fix$FIX_TAG
 
-            - name: Comment on related Issue
+            - name: Comment on related Issue and update changelog
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
                   RELEASE_VERSION: ${{ inputs.release_version }}
@@ -102,7 +116,7 @@ jobs:
                   FIX_TAG=${{ steps.get_fix_number.outputs.FIX_NUM }}
                   DATE=$(date +'%d.%m.%Y')
                   AUTHOR=${{ github.actor }}
-                  TAG_PREFIX="${RELEASE_VERSION}_fix"
+                  TAG_PREFIX="${RELEASE_VERSION}"
                   CURRENT_TAG="${RELEASE_VERSION}_fix${FIX_TAG}"
 
                   PREV_TAG=$(git tag --list "${TAG_PREFIX}*" | sort -V | tail -n 2 | head -n 1)
@@ -118,15 +132,11 @@ jobs:
                     exit 1
                   fi
 
-                  if [ -z "$PREV_TAG" ]; then
-                    COMMITS=$(git log --pretty=format:"- %s (%h)" $RELEASE_VERSION..HEAD)
-                  else
-                    COMMITS=$(git log --pretty=format:"- %s (%h)" $PREV_TAG..HEAD)
-                  fi
+                  COMMITS=$(git log --pretty=format:"- %s (%h)" $PREV_TAG..HEAD)
 
-                  echo -e "\n\n## $TAG_PREFIX ($DATE)\n\n$COMMITS" >> CHANGELOG.md
+                  echo -e "\n\n## $CURRENT_TAG ($DATE)\n\n$COMMITS" >> CHANGELOG.md
                   git add CHANGELOG.md
-                  git commit -m "Update CHANGELOG.md for fix $TAG_PREFIX"
+                  git commit -m "Update CHANGELOG.md for fix $CURRENT_TAG"
                   git push origin releases/$RELEASE_VERSION
 
                   COMMENT="
