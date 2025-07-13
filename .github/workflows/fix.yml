@@ -88,25 +88,41 @@ jobs:
             - name: Comment on related Issue
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  RELEASE_VERSION: ${{ inputs.release_version }}
               run: |
                   FIX_TAG=${{ steps.get_fix_number.outputs.FIX_NUM }}
                   DATE=$(date +'%d.%m.%Y')
                   AUTHOR=${{ github.actor }}
-                  TAG_PREFIX="${{ inputs.release_version }}_fix"
+                  TAG_PREFIX="${RELEASE_VERSION}_fix"
+                  CURRENT_TAG="${RELEASE_VERSION}_fix${FIX_TAG}"
+
                   PREV_TAG=$(git tag --list "${TAG_PREFIX}*" | sort -V | tail -n 2 | head -n 1)
 
+                  ISSUE_ID=$(gh issue list \
+                    --search "Release $RELEASE_VERSION" \
+                    --state all \
+                    --json number \
+                    --jq '.[0].number')
+
+                  if [ -z "$ISSUE_ID" ]; then
+                    echo "❌ Release issue not found for version $RELEASE_VERSION"
+                    exit 1
+                  fi
+
                   if [ -z "$PREV_TAG" ]; then
-                    COMMITS=$(git log --pretty=format:"- %s (%h)" ${{ inputs.release_version }}..HEAD)
+                    COMMITS=$(git log --pretty=format:"- %s (%h)" $RELEASE_VERSION..HEAD)
                   else
                     COMMITS=$(git log --pretty=format:"- %s (%h)" $PREV_TAG..HEAD)
                   fi
 
-                  COMMENT="**Фикс от:** $DATE  
+                  COMMENT="
+                  **Фикс от:** $DATE  
                   **Автор:** $AUTHOR  
-                  **Версия:** ${{ inputs.release_version }}_fix$FIX_TAG  
-                  **Docker образ:** $IMAGE_NAME:${{ inputs.release_version }}_fix$FIX_TAG
+                  **Версия:** ${CURRENT_TAG}  
+                  **Docker образ:** $IMAGE_NAME:${CURRENT_TAG}
 
                   **Изменения:**
-                  $COMMITS"
+                  $COMMITS
+                  "
 
-                  gh issue comment ${{ github.event.issue.number || 1 }} --body "$COMMENT"
+                  gh issue comment "$ISSUE_ID" --body "$COMMENT"
