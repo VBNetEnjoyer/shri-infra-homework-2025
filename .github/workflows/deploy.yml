@@ -73,7 +73,7 @@ jobs:
                   RELEASE_VERSION: ${{ inputs.release_version }}
               run: |
                   ISSUE_ID=$(gh issue list \
-                    --search "Release $RELEASE_VERSION" in:title \
+                    --search "in:title \"Release $RELEASE_VERSION\"" \
                     --state all \
                     --json number \
                     --jq '.[0].number')
