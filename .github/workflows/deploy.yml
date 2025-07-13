@@ -85,6 +85,6 @@ jobs:
 
                   DATE=$(date -u +"%d.%m.%Y %H:%M")
                   AUTHOR=${{ github.actor }}
-                  COMMENT="🚀 Релиз версии $RELEASE_VERSION выкачен в прод \n\n**Дата:** $DATE\n**Кто выкатил:** $AUTHOR"
+                  COMMENT="🚀 Релиз версии $RELEASE_VERSION выкачен в прод. **Дата:** $DATE | **Кто выкатил:** $AUTHOR"
 
                   gh issue comment "$ISSUE_ID" --body "$COMMENT"
