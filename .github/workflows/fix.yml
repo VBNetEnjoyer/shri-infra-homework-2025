@@ -1,0 +1,115 @@
+name: Fix Release
+
+on:
+    workflow_dispatch:
+        inputs:
+            release_version:
+                description: "Версия релиза"
+                required: true
+                type: string
+
+env:
+    REGISTRY_ID: "crp9i0p2ovnu55shvi59"
+    IMAGE_NAME: "cr.yandex/crp9i0p2ovnu55shvi59/app"
+
+jobs:
+    lint:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 18
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Run type check
+              run: npm run typecheck
+
+    test:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 18
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Run tests
+              run: npm run test
+
+    fix-release:
+        needs: [lint, test]
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+            issues: write
+
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Get fix number
+              id: get_fix_number
+              run: |
+                  TAG_PREFIX="v${{ inputs.release_version }}_fix"
+                  FIX_NUM=$(git tag --list "${TAG_PREFIX}*" | wc -l)
+                  echo "FIX_NUM=$((FIX_NUM+1))" >> $GITHUB_OUTPUT
+
+            - name: Build Docker image
+              run: |
+                  FIX_TAG=${{ steps.get_fix_number.outputs.FIX_NUM }}
+                  docker build -t $IMAGE_NAME:${{ inputs.release_version }}_fix$FIX_TAG .
+                  docker tag $IMAGE_NAME:${{ inputs.release_version }}_fix$FIX_TAG $IMAGE_NAME:${{ inputs.release_version }}_latest
+
+            - name: Login to Yandex Container Registry
+              run: |
+                  echo "${{ secrets.YC_OAUTH_TOKEN }}" | docker login --username oauth --password-stdin cr.yandex
+
+            - name: Push Docker image
+              run: |
+                  FIX_TAG=${{ steps.get_fix_number.outputs.FIX_NUM }}
+                  docker push $IMAGE_NAME:${{ inputs.release_version }}_fix$FIX_TAG
+                  docker push $IMAGE_NAME:${{ inputs.release_version }}_latest
+
+            - name: Create tag
+              run: |
+                  FIX_TAG=${{ steps.get_fix_number.outputs.FIX_NUM }}
+                  git config --global user.email "githubActions@example.com"
+                  git config --global user.name "${{ github.actor }}"
+                  git tag -a v${{ inputs.release_version }}_fix$FIX_TAG -m "Fix release ${{ inputs.release_version }} #$FIX_TAG"
+                  git push origin v${{ inputs.release_version }}_fix$FIX_TAG
+
+            - name: Comment on related Issue
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  FIX_TAG=${{ steps.get_fix_number.outputs.FIX_NUM }}
+                  DATE=$(date +'%d.%m.%Y')
+                  AUTHOR=${{ github.actor }}
+                  TAG_PREFIX="v${{ inputs.release_version }}_fix"
+                  PREV_TAG=$(git tag --list "${TAG_PREFIX}*" | sort -V | tail -n 2 | head -n 1)
+
+                  if [ -z "$PREV_TAG" ]; then
+                    COMMITS=$(git log --pretty=format:"- %s (%h)" v${{ inputs.release_version }}..HEAD)
+                  else
+                    COMMITS=$(git log --pretty=format:"- %s (%h)" $PREV_TAG..HEAD)
+                  fi
+
+                  COMMENT="**Фикс от:** $DATE  
+                  **Автор:** $AUTHOR  
+                  **Версия:** v${{ inputs.release_version }}_fix$FIX_TAG  
+                  **Docker образ:** $IMAGE_NAME:${{ inputs.release_version }}_fix$FIX_TAG
+
+                  **Изменения:**
+                  $COMMITS"
+
+                  gh issue comment ${{ github.event.issue.number || 1 }} --body "$COMMENT"
