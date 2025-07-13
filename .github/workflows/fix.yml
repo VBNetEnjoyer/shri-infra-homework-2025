@@ -98,10 +98,14 @@ jobs:
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
                   RELEASE_VERSION: ${{ inputs.release_version }}
+                  RELEASE_VERSION: ${{ inputs.release_version }}
               run: |
                   FIX_TAG=${{ steps.get_fix_number.outputs.FIX_NUM }}
                   DATE=$(date +'%d.%m.%Y')
                   AUTHOR=${{ github.actor }}
+                  TAG_PREFIX="${RELEASE_VERSION}_fix"
+                  CURRENT_TAG="${RELEASE_VERSION}_fix${FIX_TAG}"
+
                   TAG_PREFIX="${RELEASE_VERSION}_fix"
                   CURRENT_TAG="${RELEASE_VERSION}_fix${FIX_TAG}"
 
@@ -118,7 +122,19 @@ jobs:
                     exit 1
                   fi
 
+                  ISSUE_ID=$(gh issue list \
+                    --search "Release $RELEASE_VERSION" \
+                    --state all \
+                    --json number \
+                    --jq '.[0].number')
+
+                  if [ -z "$ISSUE_ID" ]; then
+                    echo "❌ Release issue not found for version $RELEASE_VERSION"
+                    exit 1
+                  fi
+
                   if [ -z "$PREV_TAG" ]; then
+                    COMMITS=$(git log --pretty=format:"- %s (%h)" $RELEASE_VERSION..HEAD)
                     COMMITS=$(git log --pretty=format:"- %s (%h)" $RELEASE_VERSION..HEAD)
                   else
                     COMMITS=$(git log --pretty=format:"- %s (%h)" $PREV_TAG..HEAD)
@@ -134,9 +150,14 @@ jobs:
                   **Автор:** $AUTHOR  
                   **Версия:** ${CURRENT_TAG}  
                   **Docker образ:** $IMAGE_NAME:${CURRENT_TAG}
+                  **Версия:** ${CURRENT_TAG}  
+                  **Docker образ:** $IMAGE_NAME:${CURRENT_TAG}
 
                   **Изменения:**
                   $COMMITS
                   "
+                  $COMMITS
+                  "
 
+                  gh issue comment "$ISSUE_ID" --body "$COMMENT"
                   gh issue comment "$ISSUE_ID" --body "$COMMENT"
