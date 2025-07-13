@@ -1,0 +1,90 @@
+name: Deploy
+
+on:
+    workflow_dispatch:
+        inputs:
+            release_version:
+                description: "Версия образа"
+                required: true
+                type: string
+
+env:
+    REGISTRY_ID: "crp9i0p2ovnu55shvi59"
+
+jobs:
+    deploy:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Check if release branch exists
+              id: check_release_branch
+              run: |
+                  RELEASE_BRANCH="releases/${{ github.event.inputs.release_version }}"
+                  if ! git ls-remote --exit-code --heads origin "$RELEASE_BRANCH"; then
+                      echo "::error::Release branch $RELEASE_BRANCH not found!"
+                      exit 1
+                  fi
+                  echo "RELEASE_BRANCH=$RELEASE_BRANCH" >> $GITHUB_OUTPUT
+
+            - name: Checkout release branch
+              run: |
+                  git fetch origin ${{ steps.check_release_branch.outputs.RELEASE_BRANCH }}
+                  git checkout ${{ steps.check_release_branch.outputs.RELEASE_BRANCH }}
+
+            - name: Set up Docker
+              uses: docker/setup-docker-action@v4
+
+            - name: Log in to Yandex Container Registry
+              run: |
+                  echo ${{ secrets.YC_OAUTH_TOKEN }}|docker login \
+                  --username oauth \
+                  --password-stdin \
+                  cr.yandex
+
+            - name: Check if image exists in Container Registry
+              run: |
+                  IMAGE_TAG="${{ github.event.inputs.release_version }}_latest"
+                  IMAGE="cr.yandex/${{ env.REGISTRY_ID }}/app:${IMAGE_TAG}"
+                  if ! docker pull ${IMAGE} 2>/dev/null; then
+                    exit 1
+                  fi
+                  echo "IMAGE=${IMAGE}" >> $GITHUB_ENV
+
+            - name: Deploy to production VM
+              run: |
+                  mkdir -p ~/.ssh
+                  echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/vm_key
+                  chmod 600 ~/.ssh/vm_key
+
+                  SSH_COMMAND="ssh -i ~/.ssh/vm_key -o StrictHostKeyChecking=no ${{ secrets.VM_SSH_USER }}@${{ secrets.VM_SSH_HOST }}"
+
+                  $SSH_COMMAND "docker stop app_prod"
+                  $SSH_COMMAND "docker rm app_prod"
+
+                  $SSH_COMMAND "docker pull ${IMAGE}"
+                  $SSH_COMMAND "docker run --name app_prod -p 3000:3000 ${IMAGE}"
+
+            - name: Add comment to Issue
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  RELEASE_VERSION: ${{ inputs.release_version }}
+              run: |
+                  ISSUE_ID=$(gh issue list \
+                    --search "Release $RELEASE_VERSION" \
+                    --state all \
+                    --json number \
+                    --jq '.[0].number')
+
+                  if [ -z "$ISSUE_ID" ]; then
+                    echo "❌ Release issue not found for version $RELEASE_VERSION"
+                    exit 1
+                  fi
+
+                  DATE=$(date -u +"%d.%m.%Y %H:%M")
+                  AUTHOR=${{ github.actor }}
+                  COMMENT="🚀 Релиз версии $RELEASE_VERSION выкачен в прод \n\n**Дата:** $DATE\n**Кто выкатил:** $AUTHOR"
+
+                  gh issue comment "$ISSUE_ID" --body "$COMMENT"

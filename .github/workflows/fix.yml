@@ -132,7 +132,7 @@ jobs:
                     exit 1
                   fi
 
-                  COMMITS=$(git log --pretty=format:"- %s (%h)" $PREV_TAG..HEAD)
+                  COMMITS=$(git log --pretty=format:"- %s (%h)" $PREV_TAG..HEAD --skip=1)
 
                   echo -e "\n\n## $CURRENT_TAG ($DATE)\n\n$COMMITS" >> CHANGELOG.md
                   git add CHANGELOG.md
