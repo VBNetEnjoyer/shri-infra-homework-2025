@@ -4,7 +4,7 @@ on:
     workflow_dispatch:
 
 env:
-    REGISTRY_ID: "crp9i0p2ovnu55shvi59" # Замените на ваш идентификатор реестра в Yandex Container Registry
+    REGISTRY_ID: "crp9i0p2ovnu55shvi59"
 
 jobs:
     lint:
@@ -15,7 +15,7 @@ jobs:
             - name: Setup Node.js
               uses: actions/setup-node@v4
               with:
-                  node-version: 18 # или нужная тебе версия
+                  node-version: 18
 
             - name: Install dependencies
               run: npm ci
