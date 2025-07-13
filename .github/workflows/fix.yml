@@ -52,12 +52,21 @@ jobs:
         steps:
             - uses: actions/checkout@v4
               with:
+                  ref: releases/${{ github.event.inputs.release_version }}
                   fetch-depth: 0
+
+            - name: Merge main into release branch
+              run: |
+                  git config --global user.email "github-actions@github.com"
+                  git config --global user.name "GitHub Actions"
+                  git fetch origin
+                  git merge origin/main --no-edit
+                  git push origin releases/${{ inputs.release_version }}
 
             - name: Get fix number
               id: get_fix_number
               run: |
-                  TAG_PREFIX="v${{ inputs.release_version }}_fix"
+                  TAG_PREFIX="${{ inputs.release_version }}_fix"
                   FIX_NUM=$(git tag --list "${TAG_PREFIX}*" | wc -l)
                   echo "FIX_NUM=$((FIX_NUM+1))" >> $GITHUB_OUTPUT
 
@@ -82,8 +91,8 @@ jobs:
                   FIX_TAG=${{ steps.get_fix_number.outputs.FIX_NUM }}
                   git config --global user.email "githubActions@example.com"
                   git config --global user.name "${{ github.actor }}"
-                  git tag -a v${{ inputs.release_version }}_fix$FIX_TAG -m "Fix release ${{ inputs.release_version }} #$FIX_TAG"
-                  git push origin v${{ inputs.release_version }}_fix$FIX_TAG
+                  git tag -a ${{ inputs.release_version }}_fix$FIX_TAG -m "Fix release ${{ inputs.release_version }} #$FIX_TAG"
+                  git push origin ${{ inputs.release_version }}_fix$FIX_TAG
 
             - name: Comment on related Issue
               env:
@@ -114,6 +123,11 @@ jobs:
                   else
                     COMMITS=$(git log --pretty=format:"- %s (%h)" $PREV_TAG..HEAD)
                   fi
+
+                  echo -e "\n\n## $TAG_PREFIX ($DATE)\n\n$COMMITS" >> CHANGELOG.md
+                  git add CHANGELOG.md
+                  git commit -m "Update CHANGELOG.md for fix $TAG_PREFIX"
+                  git push origin releases/$RELEASE_VERSION
 
                   COMMENT="
                   **Фикс от:** $DATE  
