@@ -122,7 +122,7 @@ jobs:
                   PREV_TAG=$(git tag --list "${TAG_PREFIX}*" | sort -V | tail -n 2 | head -n 1)
 
                   ISSUE_ID=$(gh issue list \
-                    --search "Release $RELEASE_VERSION" \
+                    --search "Release $RELEASE_VERSION" in:title \
                     --state all \
                     --json number \
                     --jq '.[0].number')

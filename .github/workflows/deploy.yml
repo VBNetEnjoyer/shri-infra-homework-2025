@@ -65,7 +65,7 @@ jobs:
                   $SSH_COMMAND "docker rm app_prod || true"
 
                   $SSH_COMMAND "docker pull ${IMAGE}"
-                  $SSH_COMMAND "docker run --name app_prod -p 3000:3000 ${IMAGE}"
+                  $SSH_COMMAND "docker run -d --name app_prod -p 3000:3000 ${IMAGE}"
 
             - name: Add comment to Issue
               env:
@@ -73,7 +73,7 @@ jobs:
                   RELEASE_VERSION: ${{ inputs.release_version }}
               run: |
                   ISSUE_ID=$(gh issue list \
-                    --search "Release $RELEASE_VERSION" \
+                    --search "Release $RELEASE_VERSION" in:title \
                     --state all \
                     --json number \
                     --jq '.[0].number')
